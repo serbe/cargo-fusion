@@ -1,16 +1,7 @@
-//! Resolves the correct manifest and source scope for cargo-fusion.
-//!
-//! Two modes, detected automatically:
-//!
-//! 1. **Workspace mode** – the given `Cargo.toml` owns a `[workspace]` section.
-//!    Parse and search the entire workspace tree.
-//!
-//! 2. **Crate mode** – the given `Cargo.toml` is a workspace member (no `[workspace]`).
-//!    Walk up to find the workspace root so `cargo_toml` can resolve inherited fields,
-//!    but restrict the file search to the **crate directory only**.
-
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
+
+use crate::manifest_utils::{is_workspace_manifest, parse_manifest};
 
 pub struct WorkspaceResolution {
     /// Always the workspace-root `Cargo.toml` (or the original path if no workspace was found).
@@ -36,7 +27,7 @@ pub fn resolve_workspace_manifest(manifest_path: &Path) -> Result<WorkspaceResol
         .to_path_buf();
 
     // If this manifest already declares [workspace], we are at the root.
-    if manifest_declares_workspace(&canonical)? {
+    if is_workspace_manifest(&canonical)? {
         return Ok(WorkspaceResolution {
             manifest_path: canonical,
             search_root: crate_dir,
@@ -75,20 +66,10 @@ pub fn resolve_workspace_manifest(manifest_path: &Path) -> Result<WorkspaceResol
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Returns `true` when the manifest file contains a `[workspace]` table.
-///
-/// We use `cargo_toml` for parsing instead of scanning raw text, which avoids
-/// false positives from comments like `# [workspace]`.
-fn manifest_declares_workspace(path: &Path) -> Result<bool> {
-    let manifest = cargo_toml::Manifest::from_path(path)
-        .with_context(|| format!("failed to parse {}", path.display()))?;
-    Ok(manifest.workspace.is_some())
-}
-
 /// Returns `true` when `candidate_manifest` is a workspace root that lists
 /// `crate_dir` among its members.
 fn workspace_lists_member(candidate_manifest: &Path, crate_dir: &Path) -> Result<bool> {
-    let manifest = cargo_toml::Manifest::from_path(candidate_manifest)
+    let manifest = parse_manifest(candidate_manifest)
         .with_context(|| format!("failed to parse {}", candidate_manifest.display()))?;
 
     let Some(workspace) = &manifest.workspace else {

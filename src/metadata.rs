@@ -1,8 +1,15 @@
-use anyhow::{Context, Result};
-use std::fs;
-use std::path::Path;
+use anyhow::Result;
+use cargo_toml::Package;
+use std::{
+    fmt::{Display, Formatter},
+    path::Path,
+};
 
-/// Project metadata included at the top of the generated file.
+use crate::{
+    fs_utils::read_file_to_string,
+    manifest_utils::{get_package, parse_manifest},
+};
+
 #[derive(Debug)]
 pub struct ProjectMetadata {
     name: String,
@@ -15,47 +22,41 @@ pub struct ProjectMetadata {
 }
 
 impl ProjectMetadata {
-    pub fn from_manifest(manifest_path: &Path) -> Result<Self> {
-        let manifest =
-            cargo_toml::Manifest::from_path(manifest_path).context("Failed to read Cargo.toml")?;
+    pub fn from_manifest(manifest_path: &Path) -> Result<Option<Self>> {
+        let manifest = parse_manifest(manifest_path)?;
+        let package = get_package(&manifest)?;
 
-        let package = manifest
-            .package
-            .context("No [package] section found in Cargo.toml")?;
-
-        let readme = Self::read_readme(manifest_path, &package);
-
-        Ok(Self {
+        Ok(Some(Self {
             name: package.name.clone(),
             version: package.version().to_string(),
             description: package.description().map(ToString::to_string),
-            readme,
+            readme: Self::find_readme(manifest_path, package),
             repository: package.repository().map(ToString::to_string),
             authors: package.authors().to_vec(),
             license: package.license().map(ToString::to_string),
-        })
+        }))
     }
 
-    fn read_readme(manifest_path: &Path, package: &cargo_toml::Package) -> Option<String> {
+    fn find_readme(manifest_path: &Path, package: &Package) -> Option<String> {
         let parent = manifest_path.parent()?;
 
-        // Prefer the readme path declared in Cargo.toml.
-        if let Some(readme_path) = package.readme().as_path() {
-            let full = parent.join(readme_path);
-            if let Ok(text) = fs::read_to_string(&full) {
-                return Some(text);
-            }
+        // Try explicit readme path first
+        if let Some(readme_path) = package.readme().as_path()
+            && let Ok(content) = read_file_to_string(&parent.join(readme_path))
+        {
+            return Some(content);
         }
 
-        // Fall back to common README filenames.
-        ["README.md", "README", "Readme.md", "README.txt"]
+        // Fallback to common README filenames
+        const README_NAMES: &[&str] = &["README.md", "README", "Readme.md", "README.txt"];
+        README_NAMES
             .iter()
-            .find_map(|name| fs::read_to_string(parent.join(name)).ok())
+            .find_map(|name| read_file_to_string(&parent.join(name)).ok())
     }
 }
 
-impl std::fmt::Display for ProjectMetadata {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for ProjectMetadata {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "// Project: {} (v{})", self.name, self.version)?;
 
         if let Some(desc) = &self.description {
