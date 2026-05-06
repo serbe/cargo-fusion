@@ -16,10 +16,9 @@ pub enum Commands {
 #[derive(Parser, Debug, Clone)]
 #[command(name = "Cargo Fusion")]
 #[command(
-    about = "Generate a single file that contains all the source code of a Rust project.
-Mainly intended to pipe source code into an LLM."
+    about = "Generate a single file that contains all the source code of a Rust project.\nMainly intended to pipe source code into an LLM."
 )]
-#[command(version, long_about=None)]
+#[command(version, long_about = None)]
 pub struct FusionArgs {
     /// Output to stdout instead of a file.
     /// If this flag is set, the `output` option is ignored.
@@ -30,30 +29,28 @@ pub struct FusionArgs {
     pub stdout: bool,
 
     /// Include a table of contents at the top of the output.
-    /// This will list all the files included in the output.
     ///
     /// Example:
-    ///  cargo fusion --table-of-contents
+    ///   cargo fusion --table-of-contents
     #[arg(long, action)]
     pub table_of_contents: bool,
 
-    /// Optional path to the output file.
+    /// Path to the output file.
     ///
     /// Example:
     ///   cargo fusion -o ./output/combined.rs
     #[arg(short, long, default_value = "./fusion.rs")]
     pub output: PathBuf,
 
-    /// Optional path to a `Cargo.toml` file.
-    /// If not provided, the command will look for a `Cargo.toml` file in the current directory.
+    /// Path to a `Cargo.toml` file.
+    /// If not provided, looks for `Cargo.toml` in the current directory.
     ///
     /// Example:
     ///   cargo fusion -p ./path/to/Cargo.toml
     #[arg(short = 'p', long, default_value = "./Cargo.toml")]
     pub manifest_path: PathBuf,
 
-    /// Optional path to a header file.
-    /// The contents of this file will be prepended to the output.
+    /// Path to a header file prepended to the output.
     ///
     /// Example:
     ///   cargo fusion --head ./header.txt
@@ -67,99 +64,84 @@ pub struct FusionArgs {
     #[arg(long)]
     pub depth: Option<usize>,
 
-    /// Skip gitignored files.
-    /// Enabled by default.
+    /// Skip gitignored files (enabled by default).
     ///
     /// Example:
     ///   cargo fusion --skip-gitignore false
     #[arg(long, default_value_t = true)]
     pub skip_gitignore: bool,
 
-    /// Info mode.
-    /// This flag is used to measure the performance of the command, as well as the number of files found and the number of lines of code.
-    /// It will not write to a file or stdout.
+    /// Measure performance and print statistics without writing output.
     #[arg(short = 'I', long, action)]
     pub info: bool,
 
-    /// Add the dependencies of the project to the output.
+    /// Include project dependencies in the output.
     ///
-    /// WARNING: This will increase the size of the output significantly.
+    /// WARNING: This will significantly increase the output size.
     #[arg(short, long, action)]
     pub dependencies: bool,
 
-    /// The separator shown between files.
+    /// Separator shown between files.
     ///
     /// Example:
     ///   cargo fusion --separator "// File: "
     #[arg(long, default_value = "//")]
     pub separator: String,
 
-    /// Exclude files older than the specified datetime.
+    /// Exclude files modified before the specified datetime.
     ///
     /// Format: "YYYY-MM-DD HH:MM:SS"
-    ///
-    /// Will not work if `newer_than` is also set and is older than `older_than`.
-    ///
-    /// Example:
-    ///  cargo fusion --older-than "2021-01-01 00:00:00"
-    #[arg(long)]
-    pub newer_than: Option<NaiveDateTime>,
-    /// Exclude files newer than the specified datetime.
-    ///
-    /// Format: "YYYY-MM-DD HH:MM:SS"
-    ///
-    /// Will not work if `older_than` is also set and is newer than `newer_than`.
     ///
     /// Example:
     ///   cargo fusion --newer-than "2021-01-01 00:00:00"
+    #[arg(long)]
+    pub newer_than: Option<NaiveDateTime>,
+
+    /// Exclude files modified after the specified datetime.
+    ///
+    /// Format: "YYYY-MM-DD HH:MM:SS"
+    ///
+    /// Example:
+    ///   cargo fusion --older-than "2024-01-01 00:00:00"
     #[arg(long)]
     pub older_than: Option<NaiveDateTime>,
 
     /// Exclude files larger than the specified size in bytes.
     ///
-    /// Will not work if `smaller_than` is also set and is larger than `larger_than`.
-    ///
     /// Example:
-    ///  cargo fusion --larger-than 1000000
+    ///   cargo fusion --smaller-than 1000000
     #[arg(long)]
     pub smaller_than: Option<u64>,
 
     /// Exclude files smaller than the specified size in bytes.
     ///
-    /// Will not work if `larger_than` is also set and is smaller than `smaller_than`.
-    ///
     /// Example:
-    ///   cargo fusion --smaller-than 1000
+    ///   cargo fusion --larger-than 1000
     #[arg(long)]
     pub larger_than: Option<u64>,
 
-    /// Max number of files to include in the output.
-    /// If the number of files found exceeds this value, the command will ignore the rest of the files found past this number.
+    /// Maximum number of files to include.
     ///
     /// Example:
-    ///  cargo fusion --max-files 100
+    ///   cargo fusion --max-files 100
     #[arg(long)]
     pub max_files: Option<usize>,
 
-    /// Add a path to include in the output
-    ///
-    /// If the path is a directory, all files in the directory will be included.
+    /// Additional paths (files or directories) to include.
     ///
     /// Example:
-    /// cargo fusion --include "file1.rs" --include "util/components"
+    ///   cargo fusion --include "file1.rs" --include "util/components"
     #[arg(short, long)]
     pub include: Vec<PathBuf>,
 
-    /// Include files with the specified extension.
-    /// Defaults to "rs".
+    /// File extensions to include (defaults to "rs").
     ///
     /// Example:
-    ///  cargo fusion --extension toml
-    #[arg(short = 'E', long, default_values_t=["rs".to_string()])]
+    ///   cargo fusion --extension toml
+    #[arg(short = 'E', long, default_values_t = ["rs".to_string()])]
     pub extension: Vec<String>,
 
-    /// Exclude the specified files from the output.
-    /// Accepts multiple values.
+    /// Files to exclude from the output.
     ///
     /// Example:
     ///   cargo fusion --exclude "file1.rs" --exclude "file2.rs"
@@ -170,9 +152,7 @@ pub struct FusionArgs {
     #[arg(long, default_value_t = true)]
     pub include_metadata: bool,
 
-    /// Include the `Cargo.lock` file in the output
-    ///
-    /// This is generally not wanted
-    #[arg(long, default_value_t = false)]
+    /// Include the `Cargo.lock` file in the output.
+    #[arg(long)]
     pub include_lock: bool,
 }
