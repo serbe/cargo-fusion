@@ -1,0 +1,29 @@
+[package]
+name = "cargo-fusion"
+version = "0.1.0"
+edition = "2024"
+description = "A Cargo subcommand that fuses a Rust workspace into a single file"
+repository = "https://github.com/serbe/fusion"
+readme = "README.md"
+license = "MIT"
+keywords = ["cargo", "subcommand", "bundle", "single-file", "binary", "fision"]
+authors = ["Serbe"]
+categories = ["development-tools", "development-tools::cargo-plugins"]
+
+[dependencies]
+anyhow = "1.0"
+cargo_toml = "0.22"
+chrono = "0.4"
+clap = { version = "4.6", features = ["derive"] }
+clap-cargo = "0.18"
+glob = "0.3"
+ignore = { version = "0.4", features = ["simd-accel"] }
+rayon = "1.12"
+toml = "1.1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+debug = false
+strip = true
